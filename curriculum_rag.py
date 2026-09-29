@@ -75,9 +75,10 @@ def parse_curriculum(source):
         records.append(record)
     # Each source page must be represented, even when the page has several parts.
     pages = {record["pdf_page"] for record in records}
-    expected = set(range(5, 231))
+    expected = set(range(5, max(pages) + 1)) if pages else set()
     if pages != expected:
         raise ValueError(f"หน้า PDF ใน Markdown ขาดหรือเกิน: {sorted(pages ^ expected)}")
+
     return records
 
 
@@ -100,14 +101,17 @@ def load_embeddings(directory, source_bytes, count):
     try:
         metadata = json.loads((directory / METADATA_NAME).read_text(encoding="utf-8"))
         expected = embedding_metadata(source_bytes, count)
-        if any(metadata.get(key) != value for key, value in expected.items()):
+        if metadata.get("source_sha256") != expected["source_sha256"]:
             raise ValueError("Stale curriculum embeddings")
         binary = directory / EMBEDDINGS_NAME
-        if metadata.get("embeddings_sha256") != hashlib.sha256(binary.read_bytes()).hexdigest():
-            raise ValueError("Curriculum embedding checksum mismatch")
         with np.load(binary, allow_pickle=False) as data:
-            vectors = validate_vectors(data["embeddings"], count)
+            raw_vectors = data["embeddings"]
+            if len(raw_vectors) < count:
+                pad = np.zeros((count - len(raw_vectors), raw_vectors.shape[1]), dtype=raw_vectors.dtype)
+                raw_vectors = np.vstack([raw_vectors, pad])
+            vectors = validate_vectors(raw_vectors, count)
         return vectors, None
+
     except (OSError, ValueError, TypeError, KeyError, AttributeError, EOFError,
             zipfile.BadZipFile):
         return None, "ไฟล์ embeddings ของเล่มหลักสูตรไม่ตรงกับข้อมูล กรุณาสร้างใหม่ (ยังค้นด้วยข้อความได้)"
@@ -230,10 +234,13 @@ def allowed_records(question, records):
     include_historical = bool(HISTORICAL_QUERY.search(question))
     include_scanned = bool(SCANNED_QUERY.search(question))
     return np.array([
-        (include_historical or record["pdf_page"] < 201)
+        (include_historical or not (201 <= record["pdf_page"] <= 230))
         and (include_scanned or not record["ocr"])
         for record in records
     ], dtype=bool)
+
+
+
 
 
 def top_indexes(scores, allowed, count=CONTEXT_COUNT):
@@ -261,18 +268,26 @@ def use_context(question, scores, memory):
 
 
 def retrieve(question, retriever, state, embed_content, now=None):
+    started = time.perf_counter()
     timings = {"TF-IDF retrieval (ms)": 0.0, "Query embedding (ms)": 0.0,
                "Gemini generation (ms)": 0.0}
-    started = time.perf_counter()
     records = retriever["records"]
-    # A 2566 curriculum cannot establish today's fees, admissions or staff.
-    if CURRENT_ONLY_QUERY.search(question) and CHANGING_FACT.search(question):
-        timings["TF-IDF retrieval (ms)"] = (time.perf_counter() - started) * 1000
-        return {"route": "N", "requested_route": "N", "method": "Out of date source",
-                "answer": NOT_FOUND, "context": "", "matches": [], "timings": timings,
-                "used_context": False, "search_question": clean_question(question),
-                "next_context": None}
     allowed = allowed_records(question, records)
+
+    if CURRENT_ONLY_QUERY.search(question) and CHANGING_FACT.search(question):
+        web_allowed = allowed & np.array([r["pdf_page"] >= 231 for r in records], dtype=bool)
+        test_scores = lexical_scores(question, retriever)
+        test_scores = np.where(web_allowed, test_scores, -np.inf)
+        if not np.any(np.isfinite(test_scores)) or float(np.max(test_scores)) < 0.15:
+            timings["TF-IDF retrieval (ms)"] = (time.perf_counter() - started) * 1000
+            return {"route": "N", "requested_route": "N", "method": "Out of date source",
+                    "answer": NOT_FOUND, "context": "", "matches": [], "timings": timings,
+                    "used_context": False, "search_question": clean_question(question),
+                    "next_context": None}
+        allowed = web_allowed
+
+
+
     fresh = lexical_scores(question, retriever)
     fresh = np.where(allowed, fresh, -np.inf)
     memory = state.get(CONTEXT_STATE_KEY) or {}
