@@ -1,7 +1,7 @@
 {
-  "source_sha256": "a707b3f1fd1e522a171d28dceaccba3fee0bfb012d921c42c67ecbf3c70c1438",
+  "source_sha256": "a08c236d8c202b62bd0ed7eaa17083163e22ba06926b0b8e5a5b0c93954125eb",
   "model": "models/gemini-embedding-001",
-  "chunk_count": 273,
+  "chunk_count": 282,
   "format_version": 3,
   "embeddings_sha256": "7d1eb1777821c14a0075079f260ab67083f22de1272619948016c9418c85f412"
 }

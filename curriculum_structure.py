@@ -48,7 +48,7 @@ def metadata(record):
 def understand(question):
     text = clean_question(question).casefold()
     years = [(match.start(), int(match.group(1))) for match in
-             re.finditer(r"(?:ชั้น)?ปี(?:ที่)?\s*([1-5])", text)]
+             re.finditer(r"(?:ชั้น)?ปี(?:ที่)?\s*([1-5])(?!\d)", text)]
     years.extend((match.start(), number) for word, number in YEAR_WORDS.items()
                  for match in re.finditer(word, text))
     year = max(years)[1] if years else None
