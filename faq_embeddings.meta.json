@@ -1,0 +1,7 @@
+{
+  "faq_sha256": "06c511cae25d58d2c739c290418ca6c159e34088e6fc008c5b5341ee709e6811",
+  "model": "models/gemini-embedding-001",
+  "faq_count": 184,
+  "format_version": 1,
+  "embeddings_sha256": "b82678c459b4537fa244b90053179aa7516da8c036a1b5d1ae4f042fad6402a5"
+}

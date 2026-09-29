@@ -1,0 +1,12 @@
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+.faq_embedding_checkpoint.npz
+.faq_embedding_checkpoint.json
+.curriculum_embedding_checkpoint.npz
+.curriculum_embedding_checkpoint.json
+mingit/
+
