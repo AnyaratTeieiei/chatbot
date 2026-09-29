@@ -12,7 +12,7 @@ from google.genai import types
 from prompt import PROMPT_WORKAW
 
 
-DEFAULT_GENERATION_MODEL = "gemini-3.5-flash"
+DEFAULT_GENERATION_MODEL = "gemini-3.5-flash-lite"
 
 
 def create_client(api_key):
